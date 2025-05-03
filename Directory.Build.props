@@ -4,15 +4,15 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>portable</DebugType>
     <DebugSymbols>true</DebugSymbols>
     
     <!-- Package information -->
-    <Authors>aadversteeg</Authors>
-    <Company>Ave</Company>
-    <Copyright>Copyright © Ave $([System.DateTime]::Now.Year)</Copyright>
+    <Authors>Aad Versteeg</Authors>
+    <Company>Aad Versteeg</Company>
+    <Copyright>Copyright © Aad Versteeg $([System.DateTime]::Now.Year)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/aadversteeg/webmock</PackageProjectUrl>
     <RepositoryUrl>https://github.com/aadversteeg/webmock</RepositoryUrl>

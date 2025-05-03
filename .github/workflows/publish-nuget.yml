@@ -36,13 +36,46 @@ jobs:
     - name: Create artifacts directory
       run: mkdir -p ./artifacts
       
+    - name: Determine Version
+      id: version
+      run: |
+        # Extract current version from Directory.Build.props
+        VERSION_PREFIX=$(grep -o '<VersionPrefix>[^<]*</VersionPrefix>' Directory.Build.props | sed 's/<VersionPrefix>\(.*\)<\/VersionPrefix>/\1/')
+        echo "Current version prefix: $VERSION_PREFIX"
+        
+        # Use the provided suffix or default from the release tag
+        VERSION_SUFFIX="${{ github.event.inputs.version_suffix }}"
+        if [ -z "$VERSION_SUFFIX" ] && [ "${{ github.event_name }}" = "release" ]; then
+          # Extract version from release tag (v1.2.3 -> 1.2.3)
+          RELEASE_VERSION="${{ github.event.release.tag_name }}"
+          if [[ $RELEASE_VERSION == v* ]]; then
+            RELEASE_VERSION="${RELEASE_VERSION:1}"
+          fi
+          echo "Using release version: $RELEASE_VERSION"
+          VERSION_PREFIX="$RELEASE_VERSION"
+          VERSION_SUFFIX=""
+        fi
+        
+        # Set outputs for later steps
+        echo "VERSION_PREFIX=$VERSION_PREFIX" >> $GITHUB_ENV
+        echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+        if [ -n "$VERSION_SUFFIX" ]; then
+          echo "FULL_VERSION=$VERSION_PREFIX-$VERSION_SUFFIX" >> $GITHUB_ENV
+        else
+          echo "FULL_VERSION=$VERSION_PREFIX" >> $GITHUB_ENV
+        fi
+        echo "Determined version: $VERSION_PREFIX ${VERSION_SUFFIX:+- $VERSION_SUFFIX}"
+        
     - name: Pack
       run: |
-        VERSION_SUFFIX="${{ github.event.inputs.version_suffix }}"
         if [ -n "$VERSION_SUFFIX" ]; then
-          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build --version-suffix "$VERSION_SUFFIX" -o ./artifacts
+          echo "Packing version $VERSION_PREFIX-$VERSION_SUFFIX"
+          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build \
+            -p:VersionPrefix=$VERSION_PREFIX --version-suffix "$VERSION_SUFFIX" -o ./artifacts
         else
-          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build -o ./artifacts
+          echo "Packing version $VERSION_PREFIX"
+          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build \
+            -p:VersionPrefix=$VERSION_PREFIX -o ./artifacts
         fi
         
     - name: Upload artifacts
@@ -52,4 +85,6 @@ jobs:
         path: ./artifacts/*.nupkg
         
     - name: Publish to NuGet
-      run: dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: |
+        echo "Publishing Ave.WebMock version $FULL_VERSION to NuGet.org"
+        dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 namespace Ave.WebMock
 {
+    /// <summary>
+    /// Provides a fluent builder pattern for creating mock web environments.
+    /// Used to configure and construct <see cref="Web"/> instances for testing.
+    /// </summary>
     public class WebBuilder
     {
         private TimeSpan _defaultFetchDelay = TimeSpan.FromMilliseconds(100);
@@ -10,21 +14,38 @@ namespace Ave.WebMock
         private readonly List<WebsiteContext> _websites = new();
         private readonly Dictionary<int, Response> _statusCodeResponses = new();
 
+        /// <summary>
+        /// Prevents external instantiation. Use <see cref="Create"/> instead.
+        /// </summary>
         private WebBuilder()
         {
         }
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="WebBuilder"/> class.
+        /// </summary>
+        /// <returns>A new <see cref="WebBuilder"/> instance for fluent configuration.</returns>
         public static WebBuilder Create()
         {
             return new WebBuilder();
         }
 
+        /// <summary>
+        /// Sets the default delay for all responses that don't have a custom delay.
+        /// </summary>
+        /// <param name="delay">The delay to apply to responses by default.</param>
+        /// <returns>The <see cref="WebBuilder"/> instance for method chaining.</returns>
         public WebBuilder WithDefaultFetchDelay(TimeSpan delay)
         {
             _defaultFetchDelay = delay;
             return this;
         }
 
+        /// <summary>
+        /// Sets the delay for requests to URLs that don't exist in the mock web.
+        /// </summary>
+        /// <param name="delay">The delay to apply to 'not found' responses.</param>
+        /// <returns>The <see cref="WebBuilder"/> instance for method chaining.</returns>
         public WebBuilder WithNotFoundDelay(TimeSpan delay)
         {
             _notFoundDelay = delay;
@@ -71,6 +92,11 @@ namespace Ave.WebMock
             return this;
         }
 
+        /// <summary>
+        /// Adds a website with the specified root URL to the builder.
+        /// </summary>
+        /// <param name="rootUrl">The root URL of the website (e.g., "https://example.com").</param>
+        /// <returns>A <see cref="WebsiteContext"/> for configuring the website.</returns>
         public WebsiteContext WithWebsite(string rootUrl)
         {
             var websiteContext = new WebsiteContext(this, rootUrl);
@@ -78,6 +104,10 @@ namespace Ave.WebMock
             return websiteContext;
         }
 
+        /// <summary>
+        /// Builds a <see cref="Web"/> instance with all the configured websites and responses.
+        /// </summary>
+        /// <returns>A fully constructed <see cref="Web"/> instance ready for testing.</returns>
         public Web Build()
         {
             var web = new Web(_defaultFetchDelay, _notFoundDelay);
@@ -99,6 +129,10 @@ namespace Ave.WebMock
             return web;
         }
 
+        /// <summary>
+        /// Represents a website context within the <see cref="WebBuilder"/>.
+        /// Provides methods to configure a specific website with pages, links, and responses.
+        /// </summary>
         public class WebsiteContext
         {
             private readonly WebBuilder _webBuilder;
@@ -111,24 +145,50 @@ namespace Ave.WebMock
             private readonly Dictionary<string, (int StatusCode, string Title, TimeSpan? FetchDelay)> _errorPages = new();
             private readonly Dictionary<string, (Response Response, TimeSpan? FetchDelay)> _customResponses = new();
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="WebsiteContext"/> class.
+            /// </summary>
+            /// <param name="webBuilder">The parent web builder instance.</param>
+            /// <param name="rootUrl">The root URL of the website.</param>
             internal WebsiteContext(WebBuilder webBuilder, string rootUrl)
             {
                 _webBuilder = webBuilder;
                 _rootUrl = rootUrl;
             }
 
+            /// <summary>
+            /// Sets the title for the website.
+            /// </summary>
+            /// <param name="title">The title to set for the website.</param>
+            /// <returns>The <see cref="WebsiteContext"/> instance for method chaining.</returns>
             public WebsiteContext WithTitle(string title)
             {
                 _title = title;
                 return this;
             }
 
+            /// <summary>
+            /// Configures multiple levels of subpages for the website.
+            /// </summary>
+            /// <param name="levels">An array where each value represents the number of pages at that level.</param>
+            /// <returns>The <see cref="WebsiteContext"/> instance for method chaining.</returns>
+            /// <remarks>
+            /// For example, passing [3, 2] would create a website with 3 pages at the first level, 
+            /// each with 2 subpages at the second level.
+            /// </remarks>
             public WebsiteContext WithSubLevels(params int[] levels)
             {
                 _levels = levels;
                 return this;
             }
 
+            /// <summary>
+            /// Configures a single level of subpages for the website.
+            /// </summary>
+            /// <param name="numberOfPages">The number of pages to create at this level.</param>
+            /// <param name="includeParentLink">Whether each page should link back to its parent page.</param>
+            /// <param name="includeRootLink">Whether each page should link back to the root page.</param>
+            /// <returns>The <see cref="WebsiteContext"/> instance for method chaining.</returns>
             public WebsiteContext WithSubLevel(int numberOfPages, bool includeParentLink = false, bool includeRootLink = false)
             {
                 _levels = new int[] { numberOfPages };
@@ -137,6 +197,16 @@ namespace Ave.WebMock
                 return this;
             }
 
+            /// <summary>
+            /// Configures a specific page within the website.
+            /// </summary>
+            /// <param name="pageUrl">The relative or absolute URL of the page to configure.</param>
+            /// <param name="configureAction">Action to configure the page properties.</param>
+            /// <returns>The <see cref="WebsiteContext"/> instance for method chaining.</returns>
+            /// <remarks>
+            /// If the pageUrl is relative (doesn't start with the root URL), it will be automatically
+            /// prefixed with the root URL of this website.
+            /// </remarks>
             public WebsiteContext ConfigurePage(string pageUrl, Action<PageConfiguration> configureAction)
             {
                 var configuration = new PageConfiguration();
@@ -212,11 +282,20 @@ namespace Ave.WebMock
                 return this;
             }
 
+            /// <summary>
+            /// Builds a <see cref="Web"/> instance with all the configured websites and pages.
+            /// </summary>
+            /// <returns>A fully constructed <see cref="Web"/> instance.</returns>
             public Web Build()
             {
                 return _webBuilder.Build();
             }
 
+            /// <summary>
+            /// Internal method that builds the pages for this website and adds them to the given web instance.
+            /// </summary>
+            /// <param name="web">The web instance to add pages to.</param>
+            /// <returns>The updated web instance with the website's pages added.</returns>
             internal Web BuildPages(Web web)
             {
                 // Add the root page first
@@ -291,6 +370,15 @@ namespace Ave.WebMock
                 return web;
             }
 
+            /// <summary>
+            /// Recursive helper method to build pages at each level of the website hierarchy.
+            /// </summary>
+            /// <param name="web">The web instance to add pages to.</param>
+            /// <param name="parentUrl">The URL of the parent page.</param>
+            /// <param name="parentTitle">The title of the parent page.</param>
+            /// <param name="currentLevel">The current level in the hierarchy being built.</param>
+            /// <param name="pathIndices">List of indices representing the path to the current page.</param>
+            /// <returns>The updated web instance with the level's pages added.</returns>
             private Web BuildLevelPages(Web web, string parentUrl, string parentTitle, int currentLevel, List<int> pathIndices)
             {
                 // If we've reached the max depth, return
@@ -316,7 +404,7 @@ namespace Ave.WebMock
                         pageConfig = config;
                         
                         // Override title if specified
-                        if (!string.IsNullOrEmpty(config.Title))
+                        if (!string.IsNullOrEmpty(config?.Title))
                         {
                             pageTitle = config.Title;
                         }
@@ -363,46 +451,96 @@ namespace Ave.WebMock
                     }
 
                     // Add this page to the web
-                    web = web.AddPage(pageUrl, pageTitle, pageLinks, pageConfig?.FetchDelay);
+                    web = web.AddPage(pageUrl, pageTitle ?? "Page", pageLinks, pageConfig?.FetchDelay);
 
                     // Recursively build the next level for this page
-                    web = BuildLevelPages(web, pageUrl, pageTitle, currentLevel + 1, pagePathIndices);
+                    web = BuildLevelPages(web, pageUrl, pageTitle ?? "Page", currentLevel + 1, pagePathIndices);
                 }
 
                 return web;
             }
         }
 
+        /// <summary>
+        /// Provides configuration options for an individual page within a website.
+        /// </summary>
         public class PageConfiguration
         {
             private readonly List<string> _additionalLinks = new();
             
+            /// <summary>
+            /// Gets the title of the page, if set.
+            /// </summary>
             public string? Title { get; private set; }
+            
+            /// <summary>
+            /// Gets the custom fetch delay for this page, if set.
+            /// </summary>
             public TimeSpan? FetchDelay { get; private set; }
+            
+            /// <summary>
+            /// Gets the collection of additional links to include on this page.
+            /// </summary>
             public IReadOnlyCollection<string> AdditionalLinks => _additionalLinks;
+            
+            /// <summary>
+            /// Gets whether this page should include a link to the root page.
+            /// </summary>
             public bool IncludeRootLink { get; private set; }
+            
+            /// <summary>
+            /// Gets whether this page should include a link to its parent page.
+            /// </summary>
             public bool IncludeParentLink { get; private set; }
+            
+            /// <summary>
+            /// Gets whether this page should include a link to the previous sibling page.
+            /// </summary>
             public bool IncludePreviousSiblingLink { get; private set; }
+            
+            /// <summary>
+            /// Gets whether this page should include a link to the next sibling page.
+            /// </summary>
             public bool IncludeNextSiblingLink { get; private set; }
 
+            /// <summary>
+            /// Sets the title for this page.
+            /// </summary>
+            /// <param name="title">The title to set for the page.</param>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration WithTitle(string title)
             {
                 Title = title;
                 return this;
             }
 
+            /// <summary>
+            /// Sets a custom fetch delay for this page.
+            /// </summary>
+            /// <param name="delay">The delay to apply when fetching this page.</param>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration WithFetchDelay(TimeSpan delay)
             {
                 FetchDelay = delay;
                 return this;
             }
 
+            /// <summary>
+            /// Adds a link to this page.
+            /// </summary>
+            /// <param name="url">The URL to link to.</param>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddLink(string url)
             {
                 _additionalLinks.Add(url);
                 return this;
             }
 
+            /// <summary>
+            /// Adds multiple links to this page.
+            /// </summary>
+            /// <param name="urls">The URLs to link to.</param>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddLinks(params string[] urls)
             {
                 foreach (var url in urls)
@@ -412,24 +550,40 @@ namespace Ave.WebMock
                 return this;
             }
             
+            /// <summary>
+            /// Configures this page to include a link to the root page of the website.
+            /// </summary>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddRootLink()
             {
                 IncludeRootLink = true;
                 return this;
             }
             
+            /// <summary>
+            /// Configures this page to include a link to its parent page.
+            /// </summary>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddParentLink()
             {
                 IncludeParentLink = true;
                 return this;
             }
             
+            /// <summary>
+            /// Configures this page to include a link to the previous sibling page.
+            /// </summary>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddPreviousSiblingLink()
             {
                 IncludePreviousSiblingLink = true;
                 return this;
             }
             
+            /// <summary>
+            /// Configures this page to include a link to the next sibling page.
+            /// </summary>
+            /// <returns>The <see cref="PageConfiguration"/> instance for method chaining.</returns>
             public PageConfiguration AddNextSiblingLink()
             {
                 IncludeNextSiblingLink = true;

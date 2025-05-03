@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace Ave.WebMock
 {
+    /// <summary>
+    /// Extension methods for the <see cref="Response"/> class, adding functionality for HTML processing.
+    /// </summary>
     public static class ResponseExtensions
     {
         /// <summary>

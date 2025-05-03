@@ -71,8 +71,8 @@ namespace UnitTests.WebMock
         {
             // Act
             var response = ResponseBuilder.Create()
-                .WithTitle(null)
-                .WithLinks(null)
+                .WithTitle(null!)  // Using null-forgiving operator
+                .WithLinks(null!)  // Using null-forgiving operator
                 .BuildHtml();
 
             // Assert

@@ -1,90 +1,68 @@
-name: Publish NuGet Package
+name: Publish to NuGet
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      version_suffix:
-        description: 'Version suffix (leave empty for release version)'
+      release_id:
+        description: 'GitHub Release ID (leave empty for latest release)'
         required: false
-        default: ''
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-publish:
+  publish:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0 # Needed for GitVersion
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '7.0.x'
-        
-    - name: Restore dependencies
-      run: dotnet restore src/webmock.sln
+      - name: Get latest release ID
+        id: latest_release
+        if: ${{ github.event.inputs.release_id == '' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            if (releases.data.length === 0) {
+              core.setFailed('No releases found in this repository');
+              return;
+            }
+            const latestRelease = releases.data[0];
+            console.log(`Latest release: ${latestRelease.name} (ID: ${latestRelease.id})`);
+            core.setOutput('id', latestRelease.id);
+            core.setOutput('tag', latestRelease.tag_name);
+            core.setOutput('name', latestRelease.name);
       
-    - name: Build
-      run: dotnet build src/webmock.sln -c Release --no-restore
-      
-    - name: Test
-      run: dotnet test src/webmock.sln -c Release --no-build
-      
-    - name: Create artifacts directory
-      run: mkdir -p ./artifacts
-      
-    - name: Determine Version
-      id: version
-      run: |
-        # Extract current version from Directory.Build.props
-        VERSION_PREFIX=$(grep -o '<VersionPrefix>[^<]*</VersionPrefix>' Directory.Build.props | sed 's/<VersionPrefix>\(.*\)<\/VersionPrefix>/\1/')
-        echo "Current version prefix: $VERSION_PREFIX"
-        
-        # Use the provided suffix or default from the release tag
-        VERSION_SUFFIX="${{ github.event.inputs.version_suffix }}"
-        if [ -z "$VERSION_SUFFIX" ] && [ "${{ github.event_name }}" = "release" ]; then
-          # Extract version from release tag (v1.2.3 -> 1.2.3)
-          RELEASE_VERSION="${{ github.event.release.tag_name }}"
-          if [[ $RELEASE_VERSION == v* ]]; then
-            RELEASE_VERSION="${RELEASE_VERSION:1}"
+      - name: Set release ID
+        id: release
+        run: |
+          if [ -n "${{ github.event.inputs.release_id }}" ]; then
+            echo "RELEASE_ID=${{ github.event.inputs.release_id }}" >> $GITHUB_ENV
+            echo "Using specified release ID: ${{ github.event.inputs.release_id }}"
+          else
+            echo "RELEASE_ID=${{ steps.latest_release.outputs.id }}" >> $GITHUB_ENV
+            echo "Using latest release: ${{ steps.latest_release.outputs.name }} (ID: ${{ steps.latest_release.outputs.id }})"
           fi
-          echo "Using release version: $RELEASE_VERSION"
-          VERSION_PREFIX="$RELEASE_VERSION"
-          VERSION_SUFFIX=""
-        fi
-        
-        # Set outputs for later steps
-        echo "VERSION_PREFIX=$VERSION_PREFIX" >> $GITHUB_ENV
-        echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
-        if [ -n "$VERSION_SUFFIX" ]; then
-          echo "FULL_VERSION=$VERSION_PREFIX-$VERSION_SUFFIX" >> $GITHUB_ENV
-        else
-          echo "FULL_VERSION=$VERSION_PREFIX" >> $GITHUB_ENV
-        fi
-        echo "Determined version: $VERSION_PREFIX ${VERSION_SUFFIX:+- $VERSION_SUFFIX}"
-        
-    - name: Pack
-      run: |
-        if [ -n "$VERSION_SUFFIX" ]; then
-          echo "Packing version $VERSION_PREFIX-$VERSION_SUFFIX"
-          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build \
-            -p:VersionPrefix=$VERSION_PREFIX --version-suffix "$VERSION_SUFFIX" -o ./artifacts
-        else
-          echo "Packing version $VERSION_PREFIX"
-          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build \
-            -p:VersionPrefix=$VERSION_PREFIX -o ./artifacts
-        fi
-        
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: nuget-packages
-        path: ./artifacts/*.nupkg
-        
-    - name: Publish to NuGet
-      run: |
-        echo "Publishing Ave.WebMock version $FULL_VERSION to NuGet.org"
-        dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      
+      - name: Download release assets
+        uses: robinraju/release-downloader@v1.8
+        with:
+          repository: ${{ github.repository }}
+          releaseId: ${{ env.RELEASE_ID }}
+          fileName: "*.nupkg"
+          out-file-path: "./packages"
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+      
+      - name: Push to NuGet
+        run: |
+          echo "Publishing packages from release ID: ${{ env.RELEASE_ID }}"
+          dotnet nuget push "./packages/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

@@ -2,12 +2,25 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>Latest</LangVersion>
-    <Nullable>enable</Nullable>
+    
+    <!-- Package specific metadata -->
+    <Description>A lightweight library for mocking web requests in unit tests, providing control over response timing, status codes, and content.</Description>
+    <PackageTags>web;mock;testing;http;api</PackageTags>
+    <IsPackable>true</IsPackable>
+    
+    <!-- Package icon (uncomment and add path if you have an icon)
+    <PackageIcon>icon.png</PackageIcon>
+    -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="7.0.0" />
+    <PackageReference Include="System.Text.Json" Version="7.0.3" />
   </ItemGroup>
+  
+  <!-- Uncomment if you have an icon
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  -->
 
 </Project>

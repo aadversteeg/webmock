@@ -1,0 +1,56 @@
+name: Publish NuGet Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version_suffix:
+        description: 'Version suffix (leave empty for release version)'
+        required: false
+        default: ''
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # Needed for GitVersion
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '7.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore src/webmock.sln
+      
+    - name: Build
+      run: dotnet build src/webmock.sln -c Release --no-restore
+      
+    - name: Test
+      run: dotnet test src/webmock.sln -c Release --no-build
+      
+    - name: Create artifacts directory
+      run: mkdir -p ./artifacts
+      
+    - name: Pack
+      run: |
+        VERSION_SUFFIX="${{ github.event.inputs.version_suffix }}"
+        if [ -n "$VERSION_SUFFIX" ]; then
+          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build --version-suffix "$VERSION_SUFFIX" -o ./artifacts
+        else
+          dotnet pack src/Ave.WebMock/Ave.WebMock.csproj -c Release --no-build -o ./artifacts
+        fi
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: nuget-packages
+        path: ./artifacts/*.nupkg
+        
+    # Uncomment to publish to NuGet.org when ready
+    # - name: Publish to NuGet
+    #   run: dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
